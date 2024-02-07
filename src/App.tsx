@@ -1,7 +1,7 @@
 import reactLogo from "./assets/react.svg";
 import viteLogo from "/vite.svg";
 import "./App.css";
-import { login } from "./services/full-login";
+import { login, accessToken, userInfo } from "./services/full-login";
 
 function App() {
   return (
@@ -18,6 +18,10 @@ function App() {
       <div className="card">
         <button onClick={() => login()}>
           LOGIN (see console logs & network tab)
+        </button>
+        <br />
+        <button onClick={() => accessToken()}>
+          Get Access Token
         </button>
         <p>
           please don't spam, no additional logic to prevent multiple clicks &
