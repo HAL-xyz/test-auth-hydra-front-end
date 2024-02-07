@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import { getNonce } from "./nonce";
 import { SiweMessage } from "siwe";
 
-const LOGIN_URL = "http://localhost:8080/api/v1/siwe/login";
+const LOGIN_URL = "http://127.0.0.1:8080/api/v1/siwe/login";
 
 export async function login() {
   const { address, chainId, signMessage } = await getLoginProps();
@@ -19,7 +19,6 @@ export async function login() {
   const loginResult = await fetch(LOGIN_URL, {
     method: "POST",
     headers: {
-      "x-auth-nonce": nonceResult.nonce, // is this needed now?
       "Content-Type": "application/json",
       login_challenge: nonceResult.loginChallenge, // temp since cookies/cors failure
     },
@@ -32,6 +31,7 @@ export async function login() {
   }).then((res) => res.json());
 
   console.log("LOGIN RESULT", { loginResult });
+  window.location.href = loginResult.redirectTo;
 }
 
 async function getLoginProps() {
