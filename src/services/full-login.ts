@@ -14,7 +14,7 @@ export async function accessToken() {
   }
 
   const tokenEndpoint = 'http://localhost:4444/oauth2/token';
-  const clientId = 'a03f59d7-5f38-414e-ae51-827e0d72ae75';
+  const clientId = 'b74bbc01-9bfb-47c1-8426-e9168d4e83aa';
 
   const headers = new Headers();
   headers.append('Content-Type', 'application/x-www-form-urlencoded');
@@ -61,7 +61,7 @@ export async function login() {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      login_challenge: nonceResult.loginChallenge, // temp since cookies/cors failure
+      "x-login-challenge": nonceResult.loginChallenge, // temp since cookies/cors failure
     },
     body: JSON.stringify({
       signature,
@@ -72,7 +72,7 @@ export async function login() {
   }).then((res) => res.json());
 
   console.log("LOGIN RESULT", { loginResult });
-  window.location.href = loginResult.redirectTo;
+  window.location.href = loginResult.redirect_to;
 }
 
 async function getLoginProps() {
