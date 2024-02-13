@@ -4,6 +4,27 @@ import { SiweMessage } from "siwe";
 
 const LOGIN_URL = "http://127.0.0.1:8080/api/v1/siwe/login";
 
+async function getUserInfo(data:any) {
+  const result = await fetch("http://localhost:4444/userinfo",
+  {
+    method: 'GET',
+    headers: {
+      Authorization: "Bearer " + data.access_token 
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log("USER INFO!!");
+    console.log(data);
+  })
+  .catch(error => {
+    console.error("failed to fetch user info");
+    console.log(error);
+  })
+
+  return result
+}
+
 export async function accessToken() {
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code') || 'UNKNOWN';
@@ -14,7 +35,7 @@ export async function accessToken() {
   }
 
   const tokenEndpoint = 'http://localhost:4444/oauth2/token';
-  const clientId = 'b74bbc01-9bfb-47c1-8426-e9168d4e83aa';
+  const clientId = '3b279b11-c0b8-4150-8f3a-9ad7ee79502d';
 
   const headers = new Headers();
   headers.append('Content-Type', 'application/x-www-form-urlencoded');
@@ -36,13 +57,13 @@ export async function accessToken() {
       console.log(data);
       console.log('Access Token:', data.access_token);
       console.log('Id Token:', data.id_token);
+      getUserInfo(data);
     })
     .catch((error) => {
       alert(error)
       console.error('Error:', error);
     });
-
-  console.log(access)
+  return access
 }
 
 export async function login() {
