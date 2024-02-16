@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import { getNonce } from "./nonce";
 import { SiweMessage } from "siwe";
 
-const LOGIN_URL = "http://127.0.0.1:8080/api/v1/siwe/login";
+const LOGIN_URL = "http://127.0.0.1:8080/api/v2/siwe/login";
 
 async function getUserInfo(data:any) {
   const result = await fetch("http://localhost:4444/userinfo",
