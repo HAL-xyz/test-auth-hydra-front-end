@@ -2,50 +2,20 @@ import { ethers } from "ethers";
 import { getNonce } from "./nonce";
 import { SiweMessage } from "siwe";
 
-const LOGIN_URL = "http://127.0.0.1:8080/api/v2/siwe/login";
+const LOGIN_URL = "https://authentication.dev-api.cx.metamask.io/api/v2/siwe/login";
 
-async function getUserInfo(data:any) {
-  const result = await fetch("http://localhost:4444/userinfo",
-  {
-    method: 'GET',
-    headers: {
-      Authorization: "Bearer " + data.access_token 
-    }
-  })
-  .then(response => response.json())
-  .then(data => {
-    console.log("USER INFO!!");
-    console.log(data);
-  })
-  .catch(error => {
-    console.error("failed to fetch user info");
-    console.log(error);
-  })
-
-  return result
-}
-
-export async function accessToken() {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('code') || 'UNKNOWN';
-  if (code) {
-    console.log('Authorization Code:', code);
-  } else {
-    console.error('Authorization code not found in the URL');
-  }
-
-  const tokenEndpoint = 'http://localhost:4444/oauth2/token';
-  const clientId = '3b279b11-c0b8-4150-8f3a-9ad7ee79502d';
+export async function accessToken(token:string) {
+  const tokenEndpoint = 'https://oidc.dev-api.cx.metamask.io/oauth2/token';
+  const clientId = '8223d149-a75a-4fb1-8a5f-e19b19f558c6';
 
   const headers = new Headers();
   headers.append('Content-Type', 'application/x-www-form-urlencoded');
 
   const urlEncodedBody = new URLSearchParams();
-  urlEncodedBody.append('grant_type', 'authorization_code');
+  urlEncodedBody.append('grant_type', 'urn:ietf:params:oauth:grant-type:jwt-bearer');
   urlEncodedBody.append('client_id', clientId);
-  urlEncodedBody.append('redirect_uri', 'http://localhost:5173/callback');
-  urlEncodedBody.append('code', code);
-  urlEncodedBody.append('code_verifier', 'G2od-V2zubWEmy7G1JnhNwAr3Xz_hDsrAwvpK4J1XgyOmPGS');
+  urlEncodedBody.append('assertion', token);
+  /// urlEncodedBody.append('scope', []string{"scp1", "scp2"}); << we can config scope in hydra 
 
   const access = await fetch(tokenEndpoint, {
     method: 'POST',
@@ -54,10 +24,10 @@ export async function accessToken() {
   })
     .then(response => response.json())
     .then(data => {
+      console.log("ACCESS TOKEN FROM HYDRA")
+      console.log("***********************")
       console.log(data);
-      console.log('Access Token:', data.access_token);
-      console.log('Id Token:', data.id_token);
-      getUserInfo(data);
+      console.log("***********************")
     })
     .catch((error) => {
       alert(error)
@@ -71,7 +41,10 @@ export async function login() {
 
   // 1. get nonce
   const nonceResult = await getNonce(address);
-  console.log("NONCE RESULT", { nonceResult });
+  console.log("NONCE FROM AUTH API")
+  console.log("***********************")
+  console.log(nonceResult);
+  console.log("***********************")
 
   // 2.1 create message
   const rawMessage = createMessage(address, chainId, nonceResult.nonce);
@@ -82,18 +55,19 @@ export async function login() {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-login-challenge": nonceResult.loginChallenge, // temp since cookies/cors failure
     },
     body: JSON.stringify({
       signature,
       raw_message: rawMessage,
       nonce: nonceResult.nonce,
     }),
-    credentials: "include",
   }).then((res) => res.json());
 
-  console.log("LOGIN RESULT", { loginResult });
-  window.location.href = loginResult.redirect_to;
+  console.log("SIWE LOGIN RESULT")
+  console.log("***********************")
+  console.log(loginResult);
+  console.log("***********************")
+  accessToken(loginResult.token)
 }
 
 async function getLoginProps() {
