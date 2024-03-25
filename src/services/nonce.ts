@@ -1,5 +1,5 @@
 const NONCE_URL = (address: string) =>
-  `https://authentication.dev-api.cx.metamask.io/api/v2/nonce?address=${address}`;
+  `https://authentication.dev-api.cx.metamask.io/api/v2/nonce?identifier=${address}`;
 
 export async function getNonce(address: string) {
   console.log(address);
@@ -8,10 +8,9 @@ export async function getNonce(address: string) {
   {
     method: 'GET',
   })
-    .then((r) => r.json() as Promise<{ nonce: string; login_challenge: string }>)
+    .then((r) => r.json() as Promise<{ nonce: string }>)
     .then((d) => ({
-      nonce: d.nonce,
-      loginChallenge: d.login_challenge, // TEMP since cookies was failing
+      nonce: d.nonce
     }))
 
   return result;
