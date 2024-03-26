@@ -1,101 +1,126 @@
-import { ethers } from "ethers";
-import { getNonce } from "./nonce";
-import { SiweMessage } from "siwe";
+import {
+  AUTH_LOGIN_ENDPOINT,
+  OIDC_CLIENT_ID,
+  OIDC_GRANT_TYPE,
+  OIDC_TOKENS_ENDPOINT,
+  getNonce,
+} from "./nonce";
+import { MESSAGE_SIGNING_SNAP, connectSnap } from "./snap";
 
-const LOGIN_URL = "http://127.0.0.1:8080/api/v1/siwe/login";
-
-export async function accessToken() {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('code') || 'UNKNOWN';
-  if (code) {
-    console.log('Authorization Code:', code);
-  } else {
-    console.error('Authorization code not found in the URL');
-  }
-
-  const tokenEndpoint = 'http://localhost:4444/oauth2/token';
-  const clientId = 'a03f59d7-5f38-414e-ae51-827e0d72ae75';
-
-  const headers = new Headers();
-  headers.append('Content-Type', 'application/x-www-form-urlencoded');
+export type OAuthTokenResponse = {
+  access_token: string;
+  expires_in: number;
+};
+export async function getAccessToken(jwtToken: string): Promise<string | null> {
+  const headers = new Headers({
+    "Content-Type": "application/x-www-form-urlencoded",
+  });
 
   const urlEncodedBody = new URLSearchParams();
-  urlEncodedBody.append('grant_type', 'authorization_code');
-  urlEncodedBody.append('client_id', clientId);
-  urlEncodedBody.append('redirect_uri', 'http://localhost:5173/callback');
-  urlEncodedBody.append('code', code);
-  urlEncodedBody.append('code_verifier', 'G2od-V2zubWEmy7G1JnhNwAr3Xz_hDsrAwvpK4J1XgyOmPGS');
+  urlEncodedBody.append("grant_type", OIDC_GRANT_TYPE);
+  urlEncodedBody.append("client_id", OIDC_CLIENT_ID);
+  urlEncodedBody.append("assertion", jwtToken);
 
-  const access = await fetch(tokenEndpoint, {
-    method: 'POST',
-    headers: headers,
-    body: urlEncodedBody,
-  })
-    .then(response => response.json())
-    .then(data => {
-      console.log(data);
-      console.log('Access Token:', data.access_token);
-      console.log('Id Token:', data.id_token);
-    })
-    .catch((error) => {
-      alert(error)
-      console.error('Error:', error);
+  try {
+    const response = await fetch(OIDC_TOKENS_ENDPOINT, {
+      method: "POST",
+      headers,
+      body: urlEncodedBody.toString(),
     });
 
-  console.log(access)
+    if (!response.ok) {
+      return null;
+    }
+
+    const accessTokenResponse: OAuthTokenResponse = await response.json();
+    return accessTokenResponse?.access_token ?? null;
+  } catch (e) {
+    console.error(
+      "authentication-controller/services: unable to get access token",
+      e
+    );
+    return null;
+  }
 }
 
-export async function login() {
-  const { address, chainId, signMessage } = await getLoginProps();
-
-  // 1. get nonce
-  const nonceResult = await getNonce(address);
-  console.log("NONCE RESULT", { nonceResult });
-
-  // 2.1 create message
-  const rawMessage = createMessage(address, chainId, nonceResult.nonce);
-  const signature = await signMessage(rawMessage);
-
-  // 2.2 login
-  const loginResult = await fetch(LOGIN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      login_challenge: nonceResult.loginChallenge, // temp since cookies/cors failure
-    },
-    body: JSON.stringify({
-      signature,
-      raw_message: rawMessage,
-      nonce: nonceResult.nonce,
-    }),
-    credentials: "include",
-  }).then((res) => res.json());
-
-  console.log("LOGIN RESULT", { loginResult });
-  window.location.href = loginResult.redirectTo;
-}
-
-async function getLoginProps() {
-  const provider = new ethers.BrowserProvider(window.ethereum);
-  const signer = await provider.getSigner();
-  const address = await signer.getAddress();
-  const chainId = 1;
-
-  return {
-    address,
-    chainId,
-    signMessage: (message: string) => signer.signMessage(message),
+export type LoginResponse = {
+  token: string;
+  expires_in: string;
+  /**
+   * Contains anonymous information about the logged in profile.
+   *
+   * @property identifier_id - a deterministic unique identifier on the method used to sign in
+   * @property profile_id - a unique id for a given profile
+   * @property metametrics_id - an anonymous server id
+   */
+  profile: {
+    identifier_id: string;
+    profile_id: string;
+    metametrics_id: string;
   };
+};
+export async function login(signature: string, rawMessage: string) {
+  try {
+    const response = await fetch(AUTH_LOGIN_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        signature,
+        raw_message: rawMessage,
+      }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const loginResponse: LoginResponse = await response.json();
+    return loginResponse ?? null;
+  } catch (e) {
+    console.error("authentication-controller/services: unable to login", e);
+    return null;
+  }
 }
 
-function createMessage(address: string, chainId: number, nonce: string) {
-  return new SiweMessage({
-    domain: window.location.host,
-    address,
-    uri: "http://localhost/some-login-endpoint", // i dont think this matters,
-    version: "1",
-    chainId,
-    nonce,
-    issuedAt: new Date().toISOString(),
-  }).prepareMessage();
+export function createLoginRawMessage(
+  nonce: string,
+  publicKey: string
+): `metamask:${string}:${string}` {
+  return `metamask:${nonce}:${publicKey}` as const;
+}
+
+// Actual implementation (shoving it in here just for testing)
+export async function authenticateAndAuthorize() {
+  // This connect snap is mandatory until we have preinstalled snaps
+  console.log("Step 0 Start - Connect Snap");
+  await connectSnap();
+  const publicKey = await MESSAGE_SIGNING_SNAP.getPublicKey();
+  console.log("Step 0 Complete");
+
+  // 1. Get Nonce
+  console.log("Step 1 - Get Nonce");
+  const nonce = await getNonce(publicKey);
+  if (!nonce) throw new Error("No nonce found");
+  console.log("Step 1 Complete", { nonce });
+
+  // 2. Create Message And Login
+  console.log("Step 2 - Create Message & Login");
+  const rawMessage = createLoginRawMessage(nonce, publicKey);
+  const signature = await MESSAGE_SIGNING_SNAP.signMessage(rawMessage);
+  console.log("Step 2 Intermediate Vars", { rawMessage, signature });
+  const loginResult = await login(signature, rawMessage);
+  const jwt = loginResult?.token;
+  if (!jwt) throw new Error("Failed to Authenticate");
+  console.log("Step 2 Complete", { loginResult });
+
+  // 3. Trade in for Access Token
+  console.log("Step 3 - Trade JWT for Access Token");
+  const accessToken = await getAccessToken(jwt);
+  if (!accessToken)
+    throw new Error("Failed to Authorize and issue access token");
+  console.log("Step 3 Complete", { accessToken });
+
+  return accessToken;
 }

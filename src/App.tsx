@@ -1,7 +1,7 @@
 import reactLogo from "./assets/react.svg";
 import viteLogo from "/vite.svg";
 import "./App.css";
-import { login, accessToken, userInfo } from "./services/full-login";
+import { authenticateAndAuthorize } from "./services/full-login";
 
 function App() {
   return (
@@ -16,13 +16,13 @@ function App() {
       </div>
       <h1>Vite + React</h1>
       <div className="card">
-        <button onClick={() => login()}>
+        <button onClick={() => authenticateAndAuthorize()}>
           LOGIN (see console logs & network tab)
         </button>
-        <br />
+        {/* <br />
         <button onClick={() => accessToken()}>
           Get Access Token
-        </button>
+        </button> */}
         <p>
           please don't spam, no additional logic to prevent multiple clicks &
           loading is in
